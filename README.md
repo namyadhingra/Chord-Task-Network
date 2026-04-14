@@ -26,14 +26,14 @@ make
 
 **For Headless VMs / Servers / WSL** (no display available):
 ```bash
-./Chord-Task-Network -u Cmdenv
+./ChordTaskNetwork -u Cmdenv
 cat outputfile.txt
 ```
 
 **For Laptops / Desktops with Display** (GUI mode):
 ```bash
-./Chord-Task-Network -u Qtenv
-# OR just: ./Chord-Task-Network (will show menu to choose)
+./ChordTaskNetwork -u Qtenv
+# OR just: ./ChordTaskNetwork (will show menu to choose)
 ```
 
 **Expected:** Simulation completes in 2-5 seconds. Check `outputfile.txt` for results.
@@ -136,10 +136,10 @@ Simulation complete.
 
 | Your Situation | Mode | Command |
 |---|---|---|
-| Running on this VM now | Cmdenv | `./Chord-Task-Network -u Cmdenv` |
-| Future: dual-boot laptop at home | Qtenv | `./Chord-Task-Network -u Qtenv` |
-| Future: lab machine with GUI | Qtenv | `./Chord-Task-Network` (choose from menu) |
-| Unsure if display exists | Try Qtenv first, fall back to Cmdenv if it fails | `./Chord-Task-Network` |
+| Running on this VM now | Cmdenv | `./ChordTaskNetwork -u Cmdenv` |
+| Future: dual-boot laptop at home | Qtenv | `./ChordTaskNetwork -u Qtenv` |
+| Future: lab machine with GUI | Qtenv | `./ChordTaskNetwork` (choose from menu) |
+| Unsure if display exists | Try Qtenv first, fall back to Cmdenv if it fails | `./ChordTaskNetwork` |
 
 ---
 
@@ -185,12 +185,12 @@ You can manually edit `topo.txt` to test custom topologies without regenerating.
 
 ```bash
 cd ~/Projects/Chord-Task-Network
-opp_makemake -f --deep -e Chord-Task-Network
+opp_makemake -f --deep -e ChordTaskNetwork
 make
 ```
 
 **What happens:**
-- `opp_makemake -f --deep -e Chord-Task-Network`: Generates Makefile and sets executable name to `Chord-Task-Network`
+- `opp_makemake -f --deep -e ChordTaskNetwork`: Generates Makefile and sets executable name to `ChordTaskNetwork`
 - `make`: Compiles all C++ sources, creates message definitions, and links the binary
 
 **Expected Output:**
@@ -200,11 +200,11 @@ Creating Makefile...
 Compiling ChordAppMsg_m.cc...
 Compiling ClientNode.cc...
 Compiling Coordinator.cc...
-Archiving libChord-Task-Network.a...
-Linking Chord-Task-Network...
+Archiving libChordTaskNetwork.a...
+Linking ChordTaskNetwork...
 ```
 
-If successful, you'll see a `Chord-Task-Network` executable (no `.exe` on Linux).
+If successful, you'll see a `ChordTaskNetwork` executable (no `.exe` on Linux).
 
 ### Step 3.4: Executing the Simulation
 
@@ -213,7 +213,7 @@ Choose your execution mode based on your environment. See [Section 2.1](#21-exec
 **Option A: Command-Line Mode (Recommended for VMs/Headless Systems)**
 
 ```bash
-./Chord-Task-Network -u Cmdenv
+./ChordTaskNetwork -u Cmdenv
 ```
 
 **What to expect:**
@@ -239,7 +239,7 @@ $
 **Option B: GUI Mode (For Laptops/Desktops with Display)**
 
 ```bash
-./Chord-Task-Network -u Qtenv
+./ChordTaskNetwork -u Qtenv
 ```
 
 **What to expect:**
@@ -259,7 +259,7 @@ $
 **Option C: Interactive Menu (Let OMNeT++ Ask You)**
 
 ```bash
-./Chord-Task-Network
+./ChordTaskNetwork
 ```
 
 OMNeT++ will show a menu asking you to choose between Cmdenv and Qtenv. Choose based on:
@@ -287,7 +287,7 @@ export OMNETPP_HOME=~/omnetpp-6.0.3
 source $OMNETPP_HOME/setenv
 cd ~/Projects/Chord-Task-Network
 python3 generate_topo.py 16
-opp_makemake -f --deep -e Chord-Task-Network
+opp_makemake -f --deep -e ChordTaskNetwork
 make
 ```
 
@@ -296,21 +296,21 @@ make
 **For Headless Systems (VM, Server, WSL):**
 ```bash
 cd ~/Projects/Chord-Task-Network
-./Chord-Task-Network -u Cmdenv
+./ChordTaskNetwork -u Cmdenv
 cat outputfile.txt
 ```
 
 **For Desktops/Laptops with Display:**
 ```bash
 cd ~/Projects/Chord-Task-Network
-./Chord-Task-Network -u Qtenv
+./ChordTaskNetwork -u Qtenv
 cat outputfile.txt
 ```
 
 **For Interactive Menu (Let OMNeT++ Ask):**
 ```bash
 cd ~/Projects/Chord-Task-Network
-./Chord-Task-Network
+./ChordTaskNetwork
 # Choose 1 for Cmdenv or 2 for Qtenv
 ```
 ```
@@ -323,7 +323,7 @@ cd ~/Projects/Chord-Task-Network
 |-------|----------|
 | `opp_makemake: command not found` | Run `source $OMNETPP_HOME/setenv` first |
 | `Python command not found` | Use `python3` instead of `python` |
-| `Permission denied: ./Chord-Task-Network` | Run `chmod +x Chord-Task-Network` |
+| `Permission denied: ./ChordTaskNetwork` | Run `chmod +x ChordTaskNetwork` |
 | Build fails with undefined references | Run `make clean` then `opp_makemake -f --deep -e Chord-Task-Network` then `make` |
 | Network size too large for VM | Reduce N in generate_topo.py (try N=8 or N=12) |
 
@@ -376,9 +376,9 @@ Edit `omnetpp.ini` and change:
 Then rebuild:
 ```bash
 make clean
-opp_makemake -f --deep -e Chord-Task-Network
+opp_makemake -f --deep -e ChordTaskNetwork
 make
-./Chord-Task-Network -u Cmdenv
+./ChordTaskNetwork -u Cmdenv
 ```
 
 ### Recommended Configurations by VM Specs
