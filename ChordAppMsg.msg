@@ -1,9 +1,8 @@
 cplusplus {{
 #include <vector>
-typedef std::vector<int> IntVector;
 }}
 
-class noncobject IntVector;
+namespace chord;
 
 enum MsgType {
     TASK_MSG = 1;
@@ -11,8 +10,8 @@ enum MsgType {
     GOSSIP_MSG = 3;
 }
 
-packet ChordAppMsg {
-    int msgType; // MsgType
+message ChordAppMsg {
+    int msgType @enum(MsgType) = TASK_MSG;
     
     // Common routing
     int sourceId;
@@ -21,7 +20,7 @@ packet ChordAppMsg {
     // For TaskMsg
     int initiatorId;
     int subtaskId;
-    IntVector data; // The array elements
+    int data[]; // The array elements (using dynamic array instead of vector)
     
     // For ResultMsg
     int maxResult;
