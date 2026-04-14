@@ -4,8 +4,9 @@ This project simulates a fully distributed, Peer-to-Peer network modeled after t
 
 ## Quick Start (TL;DR)
 
-**Run these 6 commands in order in your terminal:**
+**Build once, then choose your execution mode:**
 
+### Build Phase (Do This Once):
 ```bash
 # 1. Setup environment
 export OMNETPP_HOME=~/omnetpp-6.0.3 && source $OMNETPP_HOME/setenv
@@ -17,18 +18,27 @@ cd ~/Projects/Chord-Task-Network
 python3 generate_topo.py 16
 
 # 4. Build (first time only)
-opp_makemake -f --deep && make
+opp_makemake -f --deep -e Chord-Task-Network
+make
+```
 
-# 5. Run simulation
-./ChordTaskNetwork
+### Run Phase (Choose ONE):
 
-# 6. View results
+**For Headless VMs / Servers / WSL** (no display available):
+```bash
+./Chord-Task-Network -u Cmdenv
 cat outputfile.txt
 ```
 
-**Expected:** Simulation completes in 2-5 seconds, outputs results to `outputfile.txt`.
+**For Laptops / Desktops with Display** (GUI mode):
+```bash
+./Chord-Task-Network -u Qtenv
+# OR just: ./Chord-Task-Network (will show menu to choose)
+```
 
-For detailed explanations of each step, see [Section 3](#3-steps-to-compile-and-run) below.
+**Expected:** Simulation completes in 2-5 seconds. Check `outputfile.txt` for results.
+
+For detailed explanations and mode selection guide, see [Section 3](#3-steps-to-compile-and-run) below.
 
 ---
 
@@ -59,6 +69,79 @@ The project is structured around several distinct components that separate the n
 - **Expected Simulation Time:** 2-5 seconds
 
 This configuration is optimized for resource-constrained environments. For larger networks (N=32, 64), ensure at least 4 cores and 8+ GB RAM.
+
+## 2.1 Execution Mode Guide: Choose Your Environment
+
+This project supports **two independent execution modes**. Choose the one appropriate for your machine:
+
+### Mode 1: Command-Line Mode (Cmdenv) - For Headless Environments
+
+**Use this if you have:**
+- Linux VirtualBox VM without display server (✓ **Your current setup**)
+- Headless Linux servers
+- Windows Subsystem for Linux (WSL)
+- SSH remote sessions
+- Any environment without X11/Wayland display
+
+**Run with:**
+```bash
+./Chord-Task-Network -u Cmdenv
+```
+
+**Output:**
+- Simulation runs in terminal, no GUI window
+- Results printed to console and `outputfile.txt`
+- Fast, minimal overhead
+- Ideal for automated/batch testing
+
+**Example output:**
+```
+Node 0: Starting task...
+Node 7: Received subtask 7
+Node 0: All results received. Maximum = 857
+Gossip disseminated to all nodes
+Simulation complete.
+```
+
+---
+
+### Mode 2: GUI Mode (Qtenv) - For Desktop Environments
+
+**Use this if you have:**
+- Dual-boot laptop with Linux + display server (✓ **Your future scenario**)
+- Desktop machine with X11/Wayland
+- macOS or Windows with OMNeT++ IDE
+- Graphical Linux environment
+
+**Run with (choose one):**
+```bash
+./Chord-Task-Network -u Qtenv    # Forces GUI mode explicitly
+./Chord-Task-Network             # Shows interactive menu to choose
+```
+
+**Output:**
+- OMNeT++ GUI window opens with simulation visualization
+- See nodes, messages, and events in real-time
+- Interactive: pause, step, resume simulation
+- Helpful for debugging and understanding network behavior
+- Results still written to `outputfile.txt`
+
+**Troubleshooting GUI mode:**
+- If GUI fails to open, you likely don't have a display server → use Cmdenv instead
+- Check: `echo $DISPLAY` (should show something like `:0` on Linux with GUI)
+
+---
+
+### Which Mode Should I Use?
+
+| Your Situation | Mode | Command |
+|---|---|---|
+| Running on this VM now | Cmdenv | `./Chord-Task-Network -u Cmdenv` |
+| Future: dual-boot laptop at home | Qtenv | `./Chord-Task-Network -u Qtenv` |
+| Future: lab machine with GUI | Qtenv | `./Chord-Task-Network` (choose from menu) |
+| Unsure if display exists | Try Qtenv first, fall back to Cmdenv if it fails | `./Chord-Task-Network` |
+
+---
 
 ## 3. Steps to Compile and Run
 
@@ -102,12 +185,12 @@ You can manually edit `topo.txt` to test custom topologies without regenerating.
 
 ```bash
 cd ~/Projects/Chord-Task-Network
-opp_makemake -f --deep
+opp_makemake -f --deep -e Chord-Task-Network
 make
 ```
 
 **What happens:**
-- `opp_makemake -f --deep`: Analyzes all source files and generates a platform-specific Makefile
+- `opp_makemake -f --deep -e Chord-Task-Network`: Generates Makefile and sets executable name to `Chord-Task-Network`
 - `make`: Compiles all C++ sources, creates message definitions, and links the binary
 
 **Expected Output:**
@@ -117,25 +200,71 @@ Creating Makefile...
 Compiling ChordAppMsg_m.cc...
 Compiling ClientNode.cc...
 Compiling Coordinator.cc...
-Archiving libChordTaskNetwork.a...
-Linking ChordTaskNetwork...
+Archiving libChord-Task-Network.a...
+Linking Chord-Task-Network...
 ```
 
-If successful, you'll see a `ChordTaskNetwork` executable (no `.exe` on Linux).
+If successful, you'll see a `Chord-Task-Network` executable (no `.exe` on Linux).
 
 ### Step 3.4: Executing the Simulation
 
-Run the simulation from the project directory:
+Choose your execution mode based on your environment. See [Section 2.1](#21-execution-mode-guide-choose-your-environment) for details.
+
+**Option A: Command-Line Mode (Recommended for VMs/Headless Systems)**
 
 ```bash
-./ChordTaskNetwork
+./Chord-Task-Network -u Cmdenv
 ```
 
 **What to expect:**
-- Simulation runs in cmdenv (command-line mode, no GUI)
-- Console output shows task initialization, message routing, and gossip dissemination
+- Simulation runs in terminal, no GUI window
+- Console output shows task initialization, routing, gossip dissemination
 - Expected duration: 2-5 seconds
 - **Output file:** `outputfile.txt` (created in project directory)
+
+**Example console output:**
+```
+Setting up Cmdenv...
+Node 0: Starting task...
+Node 2: Received subtask 2
+...
+Node 0: All results received. Maximum = 987
+Gossip disseminated
+Simulation complete.
+$
+```
+
+---
+
+**Option B: GUI Mode (For Laptops/Desktops with Display)**
+
+```bash
+./Chord-Task-Network -u Qtenv
+```
+
+**What to expect:**
+- OMNeT++ GUI window opens with network visualization
+- See nodes connected in CHORD ring topology
+- Watch messages being routed in real-time
+- Simulation progress shown in status bar
+- Results still written to `outputfile.txt` while GUI runs
+- Close window when done
+
+**If GUI fails to open:**
+- Your system likely doesn't have a display server
+- Use Command-Line Mode instead: `./Chord-Task-Network -u Cmdenv`
+
+---
+
+**Option C: Interactive Menu (Let OMNeT++ Ask You)**
+
+```bash
+./Chord-Task-Network
+```
+
+OMNeT++ will show a menu asking you to choose between Cmdenv and Qtenv. Choose based on:
+- Type `1` for Cmdenv (command-line)
+- Type `2` for Qtenv (GUI)
 
 ### Step 3.5: Viewing Results
 
@@ -152,39 +281,78 @@ The `outputfile.txt` contains:
 
 ## 4. Complete Workflow - Copy/Paste Commands
 
-Run these commands in sequence in your terminal:
-
+### Build Phase (Do Once):
 ```bash
-# 1. Setup environment
 export OMNETPP_HOME=~/omnetpp-6.0.3
 source $OMNETPP_HOME/setenv
-
-# 2. Navigate to project
 cd ~/Projects/Chord-Task-Network
-
-# 3. Generate topology
 python3 generate_topo.py 16
-
-# 4. Build
-opp_makemake -f --deep
+opp_makemake -f --deep -e Chord-Task-Network
 make
+```
 
-# 5. Run simulation
-./ChordTaskNetwork
+### Execution Phase (Choose ONE based on your environment):
 
-# 6. Check results
+**For Headless Systems (VM, Server, WSL):**
+```bash
+cd ~/Projects/Chord-Task-Network
+./Chord-Task-Network -u Cmdenv
 cat outputfile.txt
 ```
 
+**For Desktops/Laptops with Display:**
+```bash
+cd ~/Projects/Chord-Task-Network
+./Chord-Task-Network -u Qtenv
+cat outputfile.txt
+```
+
+**For Interactive Menu (Let OMNeT++ Ask):**
+```bash
+cd ~/Projects/Chord-Task-Network
+./Chord-Task-Network
+# Choose 1 for Cmdenv or 2 for Qtenv
+```
+```
+
 ## 5. Troubleshooting
+
+### General Issues
 
 | Issue | Solution |
 |-------|----------|
 | `opp_makemake: command not found` | Run `source $OMNETPP_HOME/setenv` first |
 | `Python command not found` | Use `python3` instead of `python` |
-| `Permission denied: ./ChordTaskNetwork` | Run `chmod +x ChordTaskNetwork` |
-| Build fails with undefined references | Run `make clean` then `make` again |
+| `Permission denied: ./Chord-Task-Network` | Run `chmod +x Chord-Task-Network` |
+| Build fails with undefined references | Run `make clean` then `opp_makemake -f --deep -e Chord-Task-Network` then `make` |
 | Network size too large for VM | Reduce N in generate_topo.py (try N=8 or N=12) |
+
+### Execution Mode Issues
+
+| Issue | Solution |
+|-------|----------|
+| **I want command-line mode only** | Run: `./Chord-Task-Network -u Cmdenv` |
+| **I want GUI mode** | Run: `./Chord-Task-Network -u Qtenv` (needs display server) |
+| **GUI fails to open (EGL/MESA errors)** | You don't have a display server. Use: `./Chord-Task-Network -u Cmdenv` |
+| **Program hangs when I run without `-u`** | OMNeT++ is trying to open GUI but can't. Use: `./Chord-Task-Network -u Cmdenv` |
+| **Just running `./Chord-Task-Network` shows menu** | Choose option `1` for Cmdenv or `2` for Qtenv (if available) |
+| **GUI window won't appear on remote SSH** | You're on a headless system. SSH doesn't have display forwarding. Use Cmdenv: `./Chord-Task-Network -u Cmdenv` |
+
+### Forcing a Specific Mode Permanently (Optional)
+
+If you want OMNeT++ to always default to one mode, edit `omnetpp.ini`:
+
+```ini
+[General]
+...
+preferred-user-interface = Cmdenv    # For headless (VMs, servers)
+# OR
+preferred-user-interface = Qtenv     # For machines with display
+```
+
+Remove or comment out the line to let user choose via menu.
+
+---
 
 ## 6. Customizing Network Size
 
@@ -208,8 +376,9 @@ Edit `omnetpp.ini` and change:
 Then rebuild:
 ```bash
 make clean
+opp_makemake -f --deep -e Chord-Task-Network
 make
-./ChordTaskNetwork
+./Chord-Task-Network -u Cmdenv
 ```
 
 ### Recommended Configurations by VM Specs
