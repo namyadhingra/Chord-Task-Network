@@ -1,445 +1,300 @@
-# CSL3080 Computer Networks Assignment - 2
-# Distributed Task Execution and Gossip Protocol Simulation in OMNeT++
+# CSL3080 Computer Networks Assignment--2
+## Distributed Task Execution and Gossip Protocol Simulation (OMNeT++)
 
-**Group Members:**
-1. Namya Dhingra - B23CS1040
-2. Bhargav Shekokar - B23CS1008
+**Group Members**
+- Namya Dhingra (B23CS1040)
+- Bhargav Shekokar (B23CS1008)
 
-This project simulates a fully distributed, Peer-to-Peer network modeled after the CHORD Distributed Hash Table protocol. The primary objectives are to execute a distributed task (such as finding the maximum element in a large dataset) across multiple nodes simultaneously and to disseminate the results using an optimized Gossip protocol.
+This project simulates a fully peer-to-peer network in OMNeT++ inspired by the CHORD DHT overlay. Each client splits a task into $x$ subtasks (with $x>N$), routes each subtask $i$ to client $(i \bmod N)$ using CHORD-like shortcut links, aggregates results, and then disseminates a completion notice using a loop-free gossip protocol.
 
-## Quick Start (TL;DR)
+If you want the formal write-up (diagrams + pseudocode), see `report.tex` (compiled output: `report.pdf`).
 
-**Build once, then choose your execution mode:**
+---
 
-### Build Phase (Do This Once):
+## Demo video
+
+If this repository includes a demo video file, you can view it directly here (GitHub renders the player in most cases):
+
+<video controls width="800" src="results/omnetpp video.mp4">
+	Your browser does not support the video tag.
+	<a href="demo.mp4">Download the demo video</a>.
+</video>
+
+If you are hosting the demo video elsewhere (e.g., Google Drive / YouTube / GitHub Releases), replace the `src` URL above with the hosted link.
+
+---
+
+## 0. Quick Start (TL;DR)
+
+Build once:
 ```bash
-# 1. Setup environment
-export OMNETPP_HOME=~/omnetpp-6.0.3 && source $OMNETPP_HOME/setenv
+export OMNETPP_HOME=~/omnetpp-6.0.3
+source "$OMNETPP_HOME/setenv"
 
-# 2. Navigate to project
-cd ~/Projects/ChordTaskNetwork
-
-# 3. Generate topology (first time only)
 python3 generate_topo.py 16
-
-# 4. Build (first time only)
-opp_makemake -f
+opp_makemake -f --deep -e ChordTaskNetwork
 make
 ```
 
-### Run Phase (Choose ONE):
-
-**For Headless VMs / Servers / WSL** (no display available):
+Run (pick one):
 ```bash
+# Headless / VM / SSH
 ./ChordTaskNetwork -u Cmdenv
-cat outputfile.txt
-```
 
-**For Laptops / Desktops with Display** (GUI mode):
-```bash
+# GUI (requires a display server)
 ./ChordTaskNetwork -u Qtenv
-# OR just: ./ChordTaskNetwork (will show menu to choose)
 ```
 
-**Expected:** Simulation completes in 2-5 seconds. Check `outputfile.txt` for results.
-
-For detailed explanations and mode selection guide, see [Section 3](#3-steps-to-compile-and-run) below.
+Output is written to `outputfile.txt`.
 
 ---
 
-## 1. Code Structure Description
+## 1. What the simulation does
 
-The project is structured around several distinct components that separate the network logic, message passing, and topological structure.
+### 1.1 Distributed task execution (max finding)
+- Each client generates an array of size $k$.
+- It partitions the array into $x$ chunks such that $k/x \ge 2$.
+- Subtask $i$ is assigned to destination node $d=i \bmod N$.
+- The destination computes the local maximum of its chunk and returns it to the initiator.
+- The initiator computes the global maximum as the max over all $x$ returned values.
 
-*   `generate_topo.py`: A Python script responsible for initially computing the topology. It generates a `config.txt` file containing the network parameters (number of nodes $N$, dataset size $k$, and subdivisions $x$) alongside a `topo.txt` file. The `topo.txt` file specifies the explicit edges establishing the optimal $O(\log N)$ CHORD routing links. These links allow our task allocation and gossip protocols to bypass worst-case $O(N)$ ring operations.
-*   `ClientNode.ned` and `Coordinator.ned`: Network description files that define the modular structure of the nodes. Crucially, the `ClientNode` contains an unconstrained array of bidirectional gates called `port[]` to support variable topological connections at runtime.
-*   `Network.ned` and `omnetpp.ini`: These files define the overarching network structure and specify runtime configurations.
-*   `ChordAppMsg.msg`: The OMNeT++ language definition file orchestrating the packet structures. It supports three distinct message types: task delegation (`TASK_MSG`), result propagation (`RESULT_MSG`), and gossip broadcast (`GOSSIP_MSG`), fulfilling the assignment's state machine requirements.
-*   `Coordinator.h` and `Coordinator.cc`: A central class that intervenes during the zero stage of simulation initialization. It reads `topo.txt` and systematically constructs the physical gate connections between nodes using OMNeT++ delay channels to simulate physical linkages.
-*   `ClientNode.h` and `ClientNode.cc`: The core behavioral logic for each peer. This class encapsulates dataset generation, dividing tasks into $x$ equal subtasks ($k/x \ge 2$), and generating random subtask ID $i$. It then routes subtask $i$ to client $i \% N$ via CHORD protocols. It computes the local array aggregate (the maximum element) on receipt of a subtask, aggregates partial results back at the initiator, and propagates a formatted Gossip message `<timestamp>:<origin_IP>:<client_ID>` upon completion.
+### 1.2 Gossip completion dissemination
+After a client completes its full task (not a subtask), it generates a gossip message:
 
-## 2. System Requirements and Configuration
+`<timestamp>:<origin_id_as_IP>:<client_id>`
 
-### Minimum Requirements
-- **OMNeT++:** Version 6.0 or higher
-- **RAM:** 2 GB minimum (4+ GB recommended)
-- **CPU Cores:** 2 or more
-- **Python:** 3.x
-
-### Current Configuration (Tuned for 2-core / 6GB RAM VirtualBox VM)
-- **N (Number of Nodes):** 16
-- **k (Dataset Size):** 100 elements
-- **x (Number of Subtasks):** 20 subtasks
-- **Memory per Node:** ~8-10 MB
-- **Expected Simulation Time:** 2-5 seconds
-
-This configuration is optimized for resource-constrained environments. For larger networks (N=32, 64), ensure at least 4 cores and 8+ GB RAM.
-
-## 2.1 Execution Mode Guide: Choose Your Environment
-
-This project supports **two independent execution modes**. Choose the one appropriate for your machine:
-
-### Mode 1: Command-Line Mode (Cmdenv) - For Headless Environments
-
-**Use this if you have:**
-- Linux VirtualBox VM without display server (✓ **Your current setup**)
-- Headless Linux servers
-- Windows Subsystem for Linux (WSL)
-- SSH remote sessions
-- Any environment without X11/Wayland display
-
-**Run with:**
-```bash
-./Chord-Task-Network -u Cmdenv
-```
-
-**Output:**
-- Simulation runs in terminal, no GUI window
-- Results printed to console and `outputfile.txt`
-- Fast, minimal overhead
-- Ideal for automated/batch testing
-
-**Example output:**
-```
-Node 15 initiating task, splitting 100 elements into 20 parts.
-Node 15 computed local max 897 for subtask 15 from initiator 15
-...
-Task Complete on Node 15. Conclusive Max: 1000
-Node 15 recvd GOSSIP message <0.106713>:<15>:<15>, Local Timestamp: 0.106713, Received From: 15
-Simulation complete.
-```
+Gossip forwarding is loop-free using a local message log (ML): on first receipt, forward to all neighbors except the sender; on duplicates, ignore.
 
 ---
 
-### Mode 2: GUI Mode (Qtenv) - For Desktop Environments
+## 2. Theory / design choices
 
-**Use this if you have:**
-- Dual-boot laptop with Linux + display server (✓ **Your future scenario**)
-- Desktop machine with X11/Wayland
-- macOS or Windows with OMNeT++ IDE
-- Graphical Linux environment
+### 2.1 Why add CHORD-style shortcuts?
+With only a ring, sending a message to a particular node can take $\Theta(N)$ hops in the worst case. We reduce this by adding ``finger'' links (shortcuts) so that greedy forwarding can make large progress toward the destination.
 
-**Run with (choose one):**
-```bash
-./Chord-Task-Network -u Qtenv    # Forces GUI mode explicitly
-./Chord-Task-Network             # Shows interactive menu to choose
-```
+### 2.2 Overlay model used here
+The topology is a ring plus finger edges of the form:
 
-**Output:**
-- OMNeT++ GUI window opens with simulation visualization
-- See nodes, messages, and events in real-time
-- Interactive: pause, step, resume simulation
-- Helpful for debugging and understanding network behavior
-- Results still written to `outputfile.txt`
+- Ring: $(i,(i+1)\bmod N)$
+- Fingers: $(i,(i+2^j)\bmod N)$ for $j \in \{0,1,\dots,\lfloor \log_2 N \rfloor\}$
 
-**Troubleshooting GUI mode:**
-- If GUI fails to open, you likely don't have a display server → use Cmdenv instead
-- Check: `echo $DISPLAY` (should show something like `:0` on Linux with GUI)
+The edge list is stored in `topo.txt` so evaluators can modify the overlay without changing code.
+
+### 2.3 Routing rule (greedy distance)
+Routing uses clockwise ring distance:
+
+$\text{dist}(a,b)=(b-a+N)\bmod N$.
+
+At each hop, a node forwards to a neighbor that reduces the remaining distance to the destination if possible; otherwise it uses the neighbor that provides the best fallback progress.
 
 ---
 
-### Which Mode Should I Use?
+## 3. Project structure (key files)
 
-| Your Situation | Mode | Command |
-|---|---|---|
-| Running on this VM now | Cmdenv | `./ChordTaskNetwork -u Cmdenv` |
-| Future: dual-boot laptop at home | Qtenv | `./ChordTaskNetwork -u Qtenv` |
-| Future: lab machine with GUI | Qtenv | `./ChordTaskNetwork` (choose from menu) |
-| Unsure if display exists | Try Qtenv first, fall back to Cmdenv if it fails | `./ChordTaskNetwork` |
+| File | Purpose |
+|---|---|
+| `Network.ned` | Instantiates `client[N]` and the `coordinator` module |
+| `ClientNode.ned` | Declares variable-size `port[]` gates (overlay degree can vary) |
+| `Coordinator.cc` | Reads `topo.txt` and wires bidirectional links using delay channels |
+| `ClientNode.cc/.h` | Task split, greedy routing, aggregation, gossip forwarding, termination |
+| `ChordAppMsg.msg` | Defines `ChordAppMsg` with `TASK_MSG`, `RESULT_MSG`, `GOSSIP_MSG` |
+| `generate_topo.py` | Generates ring + finger edges in `topo.txt` and writes `config.txt` |
+| `config.txt` | Stores `N`, `k`, and `x` (read at runtime by clients) |
+| `outputfile.txt` | Output log produced during a run |
 
 ---
 
-## 3. Steps to Compile and Run
+## 4. Build and run
 
-The codebase natively supports execution across both Linux and Windows environments operating OMNeT++.
+### 4.1 Prerequisites
+- OMNeT++ 6.x (or newer)
+- Python 3
 
-### Step 3.1: Environment Setup (Linux VM)
-
-Before building, set up the OMNeT++ environment by sourcing the environment script:
-
+### 4.2 Environment setup
 ```bash
 export OMNETPP_HOME=~/omnetpp-6.0.3
-source $OMNETPP_HOME/setenv
+source "$OMNETPP_HOME/setenv"
 ```
 
-*(Optional: Add these two lines to `~/.bashrc` to make the setup permanent. Then run `source ~/.bashrc`)*
-
-**Verify OMNeT++ is configured:**
+Confirm tools are visible:
 ```bash
 which opp_makemake
 ```
-If successful, you'll see the path to `opp_makemake`. If not, the environment setup failed.
 
-### Step 3.2: Generating the Topological Data
-
-Navigate to the project directory and generate the network topology:
-
+### 4.3 Generate topology + config
 ```bash
-cd ~/Projects/Chord-Task-Network
 python3 generate_topo.py 16
 ```
 
-**Expected Output:**
-- `config.txt` - Updated with N=16, k=100, x=20
-- `topo.txt` - CHORD ring topology with O(log N) shortcuts
+Notes:
+- `generate_topo.py` writes `config.txt` and `topo.txt`.
+- The current script keeps `k` and `x` fixed (defaults: `k=100`, `x=20`). If you want different values, edit `config.txt` (and ensure `k >= 2*x`).
 
-You can manually edit `topo.txt` to test custom topologies without regenerating.
-
-### Step 3.3: Building the C++ Binaries
-
-**For Linux:**
-
+### 4.4 Build
 ```bash
-cd ~/Projects/Chord-Task-Network
 opp_makemake -f --deep -e ChordTaskNetwork
 make
 ```
 
-**What happens:**
-- `opp_makemake -f --deep -e ChordTaskNetwork`: Generates Makefile and sets executable name to `ChordTaskNetwork`
-- `make`: Compiles all C++ sources, creates message definitions, and links the binary
+### 4.5 Run (choose one UI)
 
-**Expected Output:**
-```
-Creating Makefile...
-...
-Compiling ChordAppMsg_m.cc...
-Compiling ClientNode.cc...
-Compiling Coordinator.cc...
-Archiving libChordTaskNetwork.a...
-Linking ChordTaskNetwork...
-```
-
-If successful, you'll see a `ChordTaskNetwork` executable (no `.exe` on Linux).
-
-### Step 3.4: Executing the Simulation
-
-Choose your execution mode based on your environment. See [Section 2.1](#21-execution-mode-guide-choose-your-environment) for details.
-
-**Option A: Command-Line Mode (Recommended for VMs/Headless Systems)**
-
+Headless / VM / SSH (recommended):
 ```bash
 ./ChordTaskNetwork -u Cmdenv
 ```
 
-**What to expect:**
-- Simulation runs in terminal, no GUI window
-- Console output shows task initialization, routing, gossip dissemination
-- Expected duration: 2-5 seconds
-- **Output file:** `outputfile.txt` (created in project directory)
-
-**Example console/outputfile.txt extract:**
-```
-Setting up Cmdenv...
-Node 15 initiating task, splitting 100 elements into 20 parts.
-Node 15 computed local max 897 for subtask 15 from initiator 15
-Node 15 received result 897 for subtask 15
-Node 0 computed local max 706 for subtask 0 from initiator 15
-...
-Task Complete on Node 15. Conclusive Max: 1000
-Node 15 recvd GOSSIP message <0.106713>:<15>:<15>, Local Timestamp: 0.106713, Received From: 15
-Node 0 recvd GOSSIP message <0.116713>:<15>:<15>, Local Timestamp: 0.116713, Received From: 15
-Simulation complete.
-```
-
----
-
-**Option B: GUI Mode (For Laptops/Desktops with Display)**
-
+GUI (needs a display server):
 ```bash
 ./ChordTaskNetwork -u Qtenv
 ```
 
-**What to expect:**
-- OMNeT++ GUI window opens with network visualization
-- See nodes connected in CHORD ring topology
-- Watch messages being routed in real-time
-- Simulation progress shown in status bar
-- Results still written to `outputfile.txt` while GUI runs
-- Close window when done
-
-**If GUI fails to open:**
-- Your system likely doesn't have a display server
-- Use Command-Line Mode instead: `./Chord-Task-Network -u Cmdenv`
-
----
-
-**Option C: Interactive Menu (Let OMNeT++ Ask You)**
-
+Interactive mode (OMNeT++ menu):
 ```bash
 ./ChordTaskNetwork
 ```
 
-OMNeT++ will show a menu asking you to choose between Cmdenv and Qtenv. Choose based on:
-- Type `1` for Cmdenv (command-line)
-- Type `2` for Qtenv (GUI)
+### 4.6 UI mode selection guide
 
-### Step 3.5: Viewing Results
+| Situation | Recommended UI | Command |
+|---|---|---|
+| Headless VM / WSL / SSH | Cmdenv | `./ChordTaskNetwork -u Cmdenv` |
+| Local desktop with display | Qtenv | `./ChordTaskNetwork -u Qtenv` |
+| Not sure if GUI works | Cmdenv first | `./ChordTaskNetwork -u Cmdenv` |
 
+To quickly check if a display is available on Linux:
+```bash
+echo $DISPLAY
+```
+
+### 4.7 (Optional) Set a default UI in `omnetpp.ini`
+
+Add one of the following under `[General]`:
+```ini
+preferred-user-interface = Cmdenv
+```
+or
+```ini
+preferred-user-interface = Qtenv
+```
+
+### 4.8 View output
 ```bash
 cat outputfile.txt
 ```
 
-The `outputfile.txt` contains:
-- Subtask assignments and local max computations
-- Subtask results being received by the initiator
-- Gossip message propagation trace including local timestamp and sender ID
-- Final consolidated results (Conclusive Max element found)
+---
 
-### Step 3.6: Submission Instructions Reminder
-Per assignment guidelines, ensure you zip your code as a single file containing this directory:
-```bash
-# Rename the folder or create the archive directly:
-tar -czvf rollno1-rollno2.tar.gz ChordTaskNetwork/
-```
-Ensure you have updated your names and roll numbers at the top of this `.md` file, and ensure no code is modified after packaging—only topology (`topo.txt`) scaling is allowed during evaluation!
+## 5. Copy/paste workflow (end-to-end)
 
-## 4. Complete Workflow - Copy/Paste Commands
-
-### Build Phase (Do Once):
 ```bash
 export OMNETPP_HOME=~/omnetpp-6.0.3
-source $OMNETPP_HOME/setenv
-cd ~/Projects/Chord-Task-Network
+source "$OMNETPP_HOME/setenv"
+
 python3 generate_topo.py 16
 opp_makemake -f --deep -e ChordTaskNetwork
 make
-```
 
-### Execution Phase (Choose ONE based on your environment):
-
-**For Headless Systems (VM, Server, WSL):**
-```bash
-cd ~/Projects/Chord-Task-Network
 ./ChordTaskNetwork -u Cmdenv
 cat outputfile.txt
 ```
-
-**For Desktops/Laptops with Display:**
-```bash
-cd ~/Projects/Chord-Task-Network
-./ChordTaskNetwork -u Qtenv
-cat outputfile.txt
-```
-
-**For Interactive Menu (Let OMNeT++ Ask):**
-```bash
-cd ~/Projects/Chord-Task-Network
-./ChordTaskNetwork
-# Choose 1 for Cmdenv or 2 for Qtenv
-```
-```
-
-## 5. Troubleshooting
-
-### General Issues
-
-| Issue | Solution |
-|-------|----------|
-| `opp_makemake: command not found` | Run `source $OMNETPP_HOME/setenv` first |
-| `Python command not found` | Use `python3` instead of `python` |
-| `Permission denied: ./ChordTaskNetwork` | Run `chmod +x ChordTaskNetwork` |
-| Build fails with undefined references | Run `make clean` then `opp_makemake -f --deep -e Chord-Task-Network` then `make` |
-| Network size too large for VM | Reduce N in generate_topo.py (try N=8 or N=12) |
-
-### Execution Mode Issues
-
-| Issue | Solution |
-|-------|----------|
-| **I want command-line mode only** | Run: `./Chord-Task-Network -u Cmdenv` |
-| **I want GUI mode** | Run: `./Chord-Task-Network -u Qtenv` (needs display server) |
-| **GUI fails to open (EGL/MESA errors)** | You don't have a display server. Use: `./Chord-Task-Network -u Cmdenv` |
-| **Program hangs when I run without `-u`** | OMNeT++ is trying to open GUI but can't. Use: `./Chord-Task-Network -u Cmdenv` |
-| **Just running `./Chord-Task-Network` shows menu** | Choose option `1` for Cmdenv or `2` for Qtenv (if available) |
-| **GUI window won't appear on remote SSH** | You're on a headless system. SSH doesn't have display forwarding. Use Cmdenv: `./Chord-Task-Network -u Cmdenv` |
-
-### Forcing a Specific Mode Permanently (Optional)
-
-If you want OMNeT++ to always default to one mode, edit `omnetpp.ini`:
-
-```ini
-[General]
-...
-preferred-user-interface = Cmdenv    # For headless (VMs, servers)
-# OR
-preferred-user-interface = Qtenv     # For machines with display
-```
-
-Remove or comment out the line to let user choose via menu.
 
 ---
 
-## 6. Customizing Network Size
+## 6. Configuration and topology editing
 
-To change the network size, regenerate the topology with a different N value:
+### 5.1 Changing `N`
+If you change `N`, keep these consistent:
+- `omnetpp.ini`: set `*.N = <N>`
+- `config.txt`: ensure `N=<N>`
+- `topo.txt`: ensure all node IDs are in `[0, N-1]` and the graph remains connected
 
+### 5.2 Editing `topo.txt`
+`topo.txt` is an undirected edge list. The coordinator will create bidirectional links for each line `u v`.
+
+Practical constraints:
+- Keep the overlay connected (otherwise gossip may not reach every node).
+- Ensure each node has at least one neighbor.
+
+### 6.3 Changing `k` and `x`
+
+Edit `config.txt` and keep the constraint `k >= 2*x` (enforced at runtime by `ClientNode.cc`).
+
+---
+
+## 7. Output format (what to look for)
+
+You should see:
+- Task initiation: `Node X initiating task, splitting k elements into x parts.`
+- Local subtask computation: `Node D computed local max ... for subtask i from initiator X`
+- Result receipts: `Node X received result ... for subtask i`
+- Completion: `Task Complete on Node X. Conclusive Max: ...`
+- Gossip receipts (first time only):
+
+  `Node U recvd GOSSIP message <t>:<origin>:<origin>, Local Timestamp: ..., Received From: ...`
+
+Typical runtime for the default configuration (`N=16, k=100, x=20`) is a few seconds on a modest machine.
+
+---
+
+## 8. Troubleshooting
+
+### 7.1 Build issues
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `opp_makemake: command not found` | OMNeT++ env not sourced | `source "$OMNETPP_HOME/setenv"` |
+| `Permission denied: ./ChordTaskNetwork` | Executable bit missing | `chmod +x ChordTaskNetwork` |
+| Compile fails after changing `.msg` | Generated message files out of date | `make clean && opp_makemake -f --deep -e ChordTaskNetwork && make` |
+
+### 7.2 Runtime issues
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| GUI fails (EGL/MESA / no window) | No display server | Run `./ChordTaskNetwork -u Cmdenv` |
+| Running without `-u` seems to hang | OMNeT++ is waiting for UI selection / GUI startup issues | Use `./ChordTaskNetwork -u Cmdenv` |
+| `Configuration error: k must be >= 2*x` | `config.txt` invalid | Increase `k` or decrease `x` |
+| `Node X has no route to destination Y` | Overlay disconnected / missing neighbors | Fix `topo.txt` to keep the graph connected |
+| Nodes never terminate | Gossip not reaching all nodes | Ensure `topo.txt` is connected and `N` matches everywhere |
+
+---
+
+## 9. Simulation walkthrough (event timeline)
+
+This section explains the run sequence at a high level and maps it to the main modules.
+
+1. **Topology wiring (Coordinator, init stage 0)**
+	- `Coordinator.cc` reads `topo.txt` and connects `client[u].port[] <-> client[v].port[]` with a small delay channel.
+	- This makes the overlay editable without regenerating NED files.
+
+2. **Staggered start (ClientNode initialization)**
+	- Each node schedules a self-message `startTask` at `simTime() + uniform(0,1)`.
+	- Staggering reduces synchronized bursts at time 0 and produces cleaner traces.
+
+3. **Task creation and subtask routing**
+	- On `startTask`, a node generates `k` random values and partitions them into `x` chunks.
+	- For each subtask `i`, destination is `i % N` and the payload is routed using greedy clockwise distance over the overlay.
+
+4. **Subtask compute and result return**
+	- The destination node computes the local max of the received chunk and sends a `RESULT_MSG` back to the initiator.
+	- Return routing uses the same greedy forwarding.
+
+5. **Aggregation and completion gossip**
+	- After receiving all `x` results, the initiator logs the global maximum and emits a `GOSSIP_MSG`.
+	- Each node forwards each unique gossip once (ML-based duplicate suppression) and terminates after collecting gossips from all `N` origins.
+
+---
+
+## 10. Submission packaging (as per handout)
+
+Create the archive in the required format (update roll numbers accordingly):
 ```bash
-python3 generate_topo.py 32
+tar -czvf rollno1-rollno2.tar.gz .
 ```
 
-This updates:
-- `config.txt`: N=32, k=200, x=40 (automatically scaled)
-- `topo.txt`: New CHORD ring topology for 32 nodes
-- `omnetpp.ini`: Must be updated manually (see below)
+During evaluation, only `topo.txt` is intended to be modified; changes to code may be penalized per assignment rules.
 
-**Update omnetpp.ini:**
-Edit `omnetpp.ini` and change:
-```ini
-*.N = 32
-```
+---
 
-Then rebuild:
-```bash
-make clean
-opp_makemake -f --deep -e ChordTaskNetwork
-make
-./ChordTaskNetwork -u Cmdenv
-```
+## 11. References
 
-### Recommended Configurations by VM Specs
-
-| CPU Cores | RAM | Recommended N |
-|-----------|-----|---------------|
-| 2 cores | 4 GB | 8-16 (current: 16) |
-| 4 cores | 8 GB | 32 |
-| 8 cores | 16 GB | 64+ |
-
-## 7. Simulation Walkthrough: What, How, and Why
-
-The following section explicitly defines the procedural timeline of the software.
-
-### 7.1: Network Initialization and Topology Binding
-
-*   **What happens:** OMNeT++ initiates the simulation environment and triggers the `initialize()` function inside the `Coordinator` module.
-*   **How it happens:** The Coordinator parses the `topo.txt` file and sequentially matches the specified node indices. Using the OMNeT++ `cGate::connectTo` library functions, the codebase programmatically bridges output and input ports between the specified client array indices.
-*   **Why it happens:** Separating the edge linkage from the static `.ned` files allows evaluators to arbitrarily alter the network topology in simple text. It bypasses forcing the user to comprehend or rebuild rigid layout definitions.
-
-### 7.2: Staggered Task Initiation
-
-*   **What happens:** Every individual client schedules an independent timer to begin the core task generation sequence.
-*   **How it happens:** During their localized `initialize()` protocol, nodes instantiate a self executing message delayed by a randomized uniform interval, programmed as `scheduleAt(simTime() + uniform(0, 1.0))`.
-*   **Why it happens:** If every component generated and mapped messages at precisely exact simulation second $t = 0$, the network would experience severe cascading congestion unrepresentative of distributed topologies. Implementing random staggering ensures robust and debuggable network traffic sequences.
-
-### 7.3: Task Distribution and Greedy Routing
-
-*   **What happens:** When the staggered timer triggers, the client generates an arbitrary dataset of size $k$, partitions it into $x$ subtasks, and assigns subtask $i$ to destination node $i \pmod N$. 
-*   **How it happens:** The node crafts a `TASK_MSG` packet encapsulating the array vector payload and launches the iterative routing mechanic. Conforming to the CHORD protocol, the node inspects its connected neighbor array rather than passing linearly adjacent items. It mathematically evaluates the numerical gap from its neighbors toward the strict destination and picks the connected peer providing the peak forward progress without bypassing the specific target.
-*   **Why it happens:** This deterministic calculation ensures rigorous delivery strictly traversing maximum $O(\log N)$ hops utilizing the explicit bypass topology configured dynamically earlier, which curtails linear path latency.
-
-### 7.4: Subtask Execution and Aggregation Returning
-
-*   **What happens:** The targeted client eventually intercepts the `TASK_MSG` structure, processes the requested mathematical maximum spanning the payload slice, and delegates out a `RESULT_MSG`. 
-*   **How it happens:** Providing the destination parameter accurately signifies its identification limit, the client parses the array segment iteratively determining the climax boundary. Following extraction, it bounces the scalar variable backward recursively utilizing the identical distance routing hierarchy back to the initiator.
-*   **Why it happens:** Dividing computation locally offloads central strains establishing fully capable distributed concurrent processing layers. 
-
-### 7.5: Global Consensus and Gossip Dissemination
-
-*   **What happens:** The triggering node constantly tracks inward traveling `RESULT_MSG` structures. Provided the quantity equates to the designated task split size parameter $x$, it derives the globally conclusive maximum limit, writes trace definitions to output systems, and propels Gossip properties outward to identical peers.
-*   **How it happens:** The initiator compiles a custom identifier broadcasting its origin IP parameters with literal execution timestamps. Provided surrounding nodes consume this format representing `GOSSIP_MSG` structures, they map the hash tuple into localized matrices checking against redundant duplications, record parameters locally, and copy identical packages to surrounding outputs.
-*   **Why it happens:** Utilizing logical memory hash mechanisms eliminates infinite cyclical replications across undirected graphs strictly verifying only unique datasets continue replicating outward guaranteeing ubiquitous dissemination. 
-
-### 7.6: Complete Process Termination Handling
-
-*   **What happens:** The framework establishes a silent block ceasing all future local computation parameters individually for node containers.
-*   **How it happens:** Every node calculates the literal quantity of globally unique origin structures ingested. Once the peer verifies successfully acquiring gossip sequences originating natively from all $N$ distinct array originators, it activates termination triggers ignoring any incoming unverified packet.
-*   **Why it happens:** Assures bounded memory operation indicating clear successful procedural validation directly across simulated outputs indicating operational finalization correctly.
+1. OMNeT++ Documentation: https://doc.omnetpp.org/
+2. Stoica et al., "Chord: A Scalable Peer-to-peer Lookup Service for Internet Applications", SIGCOMM 2001.
+3. CSL3080 Assignment--2 handout (Distributed Task Execution and Gossip Protocol Simulation).
